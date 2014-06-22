@@ -5,12 +5,18 @@ import geonames
 import logging
 
 def get_cursors():
+    """Return cursor connections to the MongoDB database and to Geonames"""
+
+    geonames_username = os.environ.get("GEONAMES_USERNAME", None)
+    if geonames_username is None:
+        raise ValueError("GEONAMES_USERNAME must be set to your username")
     ig_mongo = pymongo.MongoClient().instagram.ig
-    geo = geonames.GeonamesClient("craigmbooth")
+    geo = geonames.GeonamesClient(geonames_username)
     return ig_mongo, geo
 
 
 def read_results_from_mongo():
+    """Read all of the results from MongoDB"""
     ig_mongo, _ = get_cursors()
     full_results = []
     for res in ig_mongo.find():

@@ -145,7 +145,7 @@ if __name__ == "__main__":
                    help='number of minutes to advance for each frame')
     parser.add_argument('--region', type=ValidRegions, default="World",
                    help='Select which of the configs in config.py to use, by '
-                   'dictionary key')
+                   'dictionary key.  Allowed values : \n%s' % cameras.keys())
     parser.add_argument('--add_timezones', action="count",
                    help='If present then add timezone offsets to any DB '
                    'elements that are missing them')
