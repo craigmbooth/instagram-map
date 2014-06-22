@@ -7,6 +7,8 @@
    are required by this particular projection.  Notably, ``lat_0``
    and ``lon_0`` specify the center of the image in latitude and longitude
 """
+import argparse
+
 cameras = {
     "Original": {
         "projection": "lcc",
@@ -66,3 +68,11 @@ cameras = {
     }
 
 }
+
+def ValidRegions(v):
+    """Class used by argparse to figure out if the region is a valid one"""
+    if v not in cameras.keys():
+        raise argparse.ArgumentTypeError("region must be one of "+
+                                         str(cameras.keys()))
+    else:
+        return v

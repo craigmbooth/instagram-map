@@ -2,6 +2,7 @@
 the instagram mongo table that requires them"""
 import pymongo
 import geonames
+import logging
 
 def get_cursors():
     ig_mongo = pymongo.MongoClient().instagram.ig
@@ -16,7 +17,8 @@ def read_results_from_mongo():
         if (res["latitude"] > -90 and res["latitude"] < 90 and
             res["longitude"] > -180 and res["longitude"] < 180):
             full_results.append(res)
-    print "Length of results we're using : ", len(full_results)
+    logging.getLogger().info("Total number of points in sample : %d" %
+                              len(full_results))
     return full_results
 
 
@@ -39,6 +41,6 @@ def add_timezone_info():
             res["offset"] = timezone["rawOffset"]
             ig_mongo.save(res)
         except geonames.GeonamesError, e:
-            print("GeonamesError: Failure for lat and lng : ",
-                   res["latitude"], res["longitude"])
-            print "Error message : ", e
+            logging.getLogger().warn("GeonamesError for lat: %f, lng: %f " %
+                   (res["latitude"], res["longitude"]))
+            logging.getLogger().warn("GeonamesError message : "+str(e))

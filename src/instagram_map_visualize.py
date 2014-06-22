@@ -1,3 +1,4 @@
+import os
 import argparse
 import pymongo
 import numpy as np
@@ -7,10 +8,10 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.patches as patches
 import datetime
+import logging
 
-from configs import cameras
+from configs import (cameras, ValidRegions)
 from extract_data import (add_timezone_info, read_results_from_mongo)
-
 
 def fix_opacity_and_color_map(x):
     """"Given a 2d image, x, get rgbt values for each pixel and modify
@@ -63,8 +64,9 @@ def add_time_labels(fig, background_color="#FFFFFF"):
     ax.set_axis_off()
 
 
-def make_map(target_time, camera, lons, lats, weights, gauss_sigma=1, sea_color="#111111",
-             land_color="#888888", nheatmapbins=500, file_prefix="USA", show_plot=False):
+def make_map(target_time, camera, lons, lats, weights, gauss_sigma=1,
+             sea_color="#111111", land_color="#888888", nheatmapbins=500,
+             file_prefix="USA", show_plot=False):
     """Makes a single image"""
 
     fig = plt.gcf()
@@ -99,7 +101,7 @@ def make_map(target_time, camera, lons, lats, weights, gauss_sigma=1, sea_color=
 
     plt.imshow(fix_opacity_and_color_map(im), extent=extent, zorder=10)
 
-    print "Saving : ", file_prefix+".png"
+    logging.getLogger().info("Saving file : "+file_prefix+".png")
 
     if show_plot:
         plt.show()
@@ -136,26 +138,42 @@ def calculate_point_weights(points, time, decay_hours=1):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.parse_args()
+    parser = argparse.ArgumentParser(description="Code that reads points from "
+        "a MongoDB database, and makes movie frames showing how the points "
+        "are distributed on a map")
+    parser.add_argument('--minutes_step', type=int, default=60,
+                   help='number of minutes to advance for each frame')
+    parser.add_argument('--region', type=ValidRegions, default="World",
+                   help='Select which of the configs in config.py to use, by '
+                   'dictionary key')
+    parser.add_argument('--add_timezones', action="count",
+                   help='If present then add timezone offsets to any DB '
+                   'elements that are missing them')
+    parser.add_argument('--data_dir', type=str, default="data",
+                   help='Path to store output images')
+    parser.add_argument('--logfile', type=str, default="instagram_map.log",
+                   help='Name of logfile')
 
-    add_timezone_info()
+    args = parser.parse_args()
+
+    logging.basicConfig(filename=os.path.join(args.data_dir, args.logfile),
+                        level=logging.DEBUG)
+    logging.basicConfig(format='%(asctime)s %(message)s')
+
+    if args.add_timezones:
+        add_timezone_info()
+
     full_results = read_results_from_mongo()
 
-    region = "World"
-    minutes_step = 120
-
-    timedelta = datetime.timedelta(minutes=minutes_step)
-
-    #Add in logic here to make directory if not already made
-    data_dir = "./pics_"+region
-
+    timedelta = datetime.timedelta(minutes=args.minutes_step)
     target_time = datetime.datetime(2014, 1, 1, 0,0,0)
     while target_time.day == 1:
         target_time += timedelta
-        print "Calculating for time ", target_time
+        logging.getLogger().info("Calculating for time %s" %
+                                 target_time.strftime("%H:%M"))
         lat, lon, weights = calculate_point_weights(full_results,
                                                     target_time, decay_hours=1)
-        make_map(target_time, cameras[region], lon, lat, weights, gauss_sigma=1,
-                 show_plot=True,
-                 file_prefix=data_dir+"/"+region+target_time.isoformat())
+        make_map(target_time, cameras[args.region], lon, lat, weights,
+                 gauss_sigma=1, show_plot=False,
+                 file_prefix=os.path.join(args.data_dir,
+                        args.region+target_time.strftime("%H%M")))
