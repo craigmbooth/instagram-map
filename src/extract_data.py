@@ -1,5 +1,6 @@
 """Functionality to add timezone offset relative to UTC to any entries in
 the instagram mongo table that requires them"""
+import os
 import pymongo
 import geonames
 import logging
@@ -38,6 +39,8 @@ def dump_images_to_html():
 def add_timezone_info():
 
     ig_mongo, geo = get_cursors()
+
+    num_added = 0
     for res in ig_mongo.find():
         if "offset" in res:
             continue
@@ -46,7 +49,10 @@ def add_timezone_info():
                                   "lng": res["longitude"]})
             res["offset"] = timezone["rawOffset"]
             ig_mongo.save(res)
+            num_added += 1
         except geonames.GeonamesError, e:
             logging.getLogger().warn("GeonamesError for lat: %f, lng: %f " %
                    (res["latitude"], res["longitude"]))
             logging.getLogger().warn("GeonamesError message : "+str(e))
+
+    logging.getLogger().info("Added %d missing offsets to data" % num_added)
