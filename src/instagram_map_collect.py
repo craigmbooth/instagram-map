@@ -1,28 +1,24 @@
 """Read instagram photos with a specific tag and save to Mongo"""
+import argparse
 from instagram.client import InstagramAPI
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
-import pprint
 from retry import retries, example_exc_handler
+from extract_data import get_cursors
 from time import sleep
 import geonames
 import logging
 import os
 
-LOGGER = logging.getLogger()
 CLIENT_ID = os.environ.get("INSTAGRAM_CLIENT_ID", None)
 CLIENT_SECRET = os.environ.get("INSTAGRAM_CLIENT_SECRET", None)
 
 @retries(5, hook=example_exc_handler, delay=10, backoff=2)
 def save_instagram_to_mongo(desired_tag):
 
-    client = MongoClient()
-    geo = geonames.GeonamesClient("craigmbooth")
-    db = client.instagram
+    ig_mongo, geo = get_cursors()
+
     api = InstagramAPI(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
-
-    ig_mongo = db.ig
-
     tag_recent_media, _ = api.tag_recent_media(tag_name=desired_tag)
 
     batch_to_send = []
@@ -63,29 +59,34 @@ def save_instagram_to_mongo(desired_tag):
     except DuplicateKeyError:
         res = []
 
-    LOGGER.warning("Saved "+str(len(res))+" to mongo")
+    logging.getLogger().warning("Saved "+str(len(res))+" to mongo")
 
-def initialize_run():
-    """Initialize"""
-
-    fh = logging.FileHandler("instagram.log")
-    fh.setLevel(logging.DEBUG)
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fh.setFormatter(formatter)
-    LOGGER.addHandler(fh)
-
-    LOGGER.info("Entering main loop")
-
-    if CLIENT_ID is None:
-        raise TypeError
-    if CLIENT_SECRET is None:
-        raise TypeError
 
 if __name__ == "__main__":
 
-    initialize_run()
+    parser = argparse.ArgumentParser(description="Code that repeatedly hits "
+        "the instagram API to get images tagged with a specific word.  Stores "
+        "links to the images and GPS coordinates to MongoDB")
+    parser.add_argument('--logfile', type=str, default="instagram_map.log",
+                   help='Name of logfile')
+    parser.add_argument('--tag', type=str, required=True,
+                   help='Tag to search for')
+    parser.add_argument('--delay', type=int, default=30,
+                   help='Delay time between hits to the Instagram API')
+
+    args = parser.parse_args()
+
+    logging.basicConfig(filename=args.logfile,
+                        level=logging.DEBUG)
+    logging.basicConfig(format='%(asctime)s %(message)s')
+
+    if CLIENT_ID is None:
+        raise ValueError("Environment variable INSTAGRAM_CLIENT_ID must "
+            "contain your client ID")
+    if CLIENT_SECRET is None:
+        raise ValueError("Environment variable INSTAGRAM_CLIENT_SECRET must "
+            "contain your client ID")
 
     while True:
-        save_instagram_to_mongo("sunset")
-        sleep(30)
+        save_instagram_to_mongo(args.tag)
+        sleep(args.delay)
