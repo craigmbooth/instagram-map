@@ -1,3 +1,4 @@
+basemap==1.0.7
 pymongo==2.7.1
 wsgiref==0.1.2
 python-instagram==1.1.1

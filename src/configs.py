@@ -59,6 +59,7 @@ cameras = {
     "World": {
          "resolution": "l",
          "projection": 'mill',
+         "opacity_thresh": 0.05,
          "projection_kwargs": {
              "llcrnrlon": -180,
              "llcrnrlat": -80,

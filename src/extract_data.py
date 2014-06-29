@@ -29,13 +29,6 @@ def read_results_from_mongo():
     return full_results
 
 
-def dump_images_to_html():
-    ig_mongo, _ = get_cursors()
-    with open("ig.html", "w") as f:
-        for res in ig_mongo.find():
-            f.write('<img src="'+res["image_url"]+'">"<br>')
-
-
 def add_timezone_info():
 
     ig_mongo, geo = get_cursors()
