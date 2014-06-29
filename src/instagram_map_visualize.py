@@ -12,20 +12,19 @@ import logging
 
 from configs import (cameras, ValidRegions)
 from extract_data import (add_timezone_info, read_results_from_mongo)
+from utils import TimedLogger
 
-def fix_opacity_and_color_map(x):
+def fix_opacity_and_color_map(x, opacity_thresh=0.1, max_opacity=0.8):
     """"Given a 2d image, x, get rgbt values for each pixel and modify
     opacity values"""
     tmp = cm.hot(x)
     im_max = np.max(x)
-    opaque_thresh = 0.1  #Threshold above which data hits full opacity
-    max_opacity = 0.8   #Maximum opacity to use
     for i in xrange(tmp.shape[0]):
         for j in xrange(tmp.shape[1]):
-            if x[i,j]/im_max > opaque_thresh:
+            if x[i,j]/im_max > opacity_thresh:
                 tmp[i,j][3] = max_opacity
             else:
-                tmp[i,j][3] = max_opacity * (1./opaque_thresh)*x[i,j]/im_max
+                tmp[i,j][3] = max_opacity * (1./opacity_thresh)*x[i,j]/im_max
     return tmp
 
 def add_time_labels(fig, background_color="#FFFFFF"):
@@ -66,7 +65,8 @@ def add_time_labels(fig, background_color="#FFFFFF"):
 
 def make_map(target_time, camera, lons, lats, weights, gauss_sigma=1,
              sea_color="#111111", land_color="#888888", nheatmapbins=500,
-             file_prefix="USA", show_plot=False):
+             file_prefix="USA", show_plot=False, opacity_thresh=0.1,
+             max_opacity=0.8):
     """Makes a single image"""
 
     fig = plt.gcf()
@@ -99,7 +99,9 @@ def make_map(target_time, camera, lons, lats, weights, gauss_sigma=1,
     im = np.log(np.rot90(im)+1)
     im = gaussian_filter(im, gauss_sigma)
 
-    plt.imshow(fix_opacity_and_color_map(im), extent=extent, zorder=10)
+    plt.imshow(fix_opacity_and_color_map(im, max_opacity=max_opacity,
+                                         opacity_thresh=opacity_thresh),
+                extent=extent, zorder=10)
 
     logging.getLogger().info("Saving file : "+file_prefix+".png")
 
@@ -110,13 +112,13 @@ def make_map(target_time, camera, lons, lats, weights, gauss_sigma=1,
 
 
 def calculate_point_weights(points, time, decay_hours=1):
-    """For each of the lat and lng points calculate a weight.  Point weights should
-    drop off as the associated time falls further into the past"""
+    """For each of the lat and lng points calculate a weight.
+    Point weights should drop off as the associated time falls further into
+    the past"""
 
     lat = []
     lon = []
     weights = []
-
     for res in points:
         image_time = res["created_time"]
 
@@ -137,6 +139,8 @@ def calculate_point_weights(points, time, decay_hours=1):
 
 
 if __name__ == "__main__":
+    """If run directly from the command line, parse arguments and write
+    movie frames"""
 
     parser = argparse.ArgumentParser(description="Code that reads points from "
         "a MongoDB database, and makes movie frames showing how the points "
@@ -156,14 +160,23 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    max_opacity = cameras[args.region].get("max_opacity", 0.8)
+    opacity_thresh = cameras[args.region].get("max_opacity", 0.1)
+
+    logging.getLogger().info("Setting region=%s" % args.region)
+    logging.getLogger().info("Setting max_opacity=%f" % max_opacity)
+    logging.getLogger().info("Setting opacity_thresh=%f" % opacity_thresh)
+
     logging.basicConfig(filename=os.path.join(args.data_dir, args.logfile),
                         level=logging.DEBUG)
     logging.basicConfig(format='%(asctime)s %(message)s')
 
     if args.add_timezones:
-        add_timezone_info()
+        with TimedLogger("Adding missing timezone info", logging.getLogger()):
+            add_timezone_info()
 
-    full_results = read_results_from_mongo()
+    with TimedLogger("Reading full dataset from MongoDB", logging.getLogger()):
+        full_results = read_results_from_mongo()
 
     timedelta = datetime.timedelta(minutes=args.minutes_step)
     target_time = datetime.datetime(2014, 1, 1, 0,0,0)
@@ -173,7 +186,14 @@ if __name__ == "__main__":
                                  target_time.strftime("%H:%M"))
         lat, lon, weights = calculate_point_weights(full_results,
                                                     target_time, decay_hours=1)
-        make_map(target_time, cameras[args.region], lon, lat, weights,
-                 gauss_sigma=1, show_plot=False,
-                 file_prefix=os.path.join(args.data_dir,
-                        args.region+target_time.strftime("%H%M")))
+
+        file_prefix = os.path.join(args.data_dir,
+                                   args.region+target_time.strftime("%H%M"))
+
+        with TimedLogger("Writing frame with prefix %s" % file_prefix,
+                         logging.getLogger()):
+            make_map(target_time, cameras[args.region], lon, lat, weights,
+                     gauss_sigma=1, show_plot=False, file_prefix=file_prefix,
+                     opacity_thresh=opacity_thresh, max_opacity=max_opacity)
+
+    logging.getLogger().info("instagram_map_visualize is COMPLETE")
