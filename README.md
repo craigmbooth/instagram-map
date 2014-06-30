@@ -1,22 +1,28 @@
 # instagram-map
 
-Python code to mine data from Instagram and animate heatmaps of this data.
+This is code that collates data from instagram and stores it in MongoDB, then uses that data to generate heatmaps using the geo coordinates from the images.
+
+This is not supposed to be a code for generic heatmap generation, it is a project I did to visualize the locations of instagram images on the globe.  With that said, I did make an effort to keep things generic, so maybe it will be useful to somebody else.  If what you want to do is the following:
+
+   * Plot data in a semitransparent heatmap over a flat-colored geographical map
+
+Then maybe this will be of interest to you...
 
 ## Initial setup
 
 The code expects that there is a MongoDB daemon running on localhost port 27017.  Additionally, the following three environment variables need to be set:
 
-   * ``INSTAGRAM_CLIENT_ID`` -- Client ID for your application, generated at [instagram.com](http://www.instagram.com/developer)
-   * ``INSTAGRAM_CLIENT_SECRET`` -- Client secret for your application, generated at [instagram.com](http://www.instagram.com/developer)
+   * ``INSTAGRAM_CLIENT_ID`` -- Client ID for your application, generated at [instagram.com/developer](http://www.instagram.com/developer)
+   * ``INSTAGRAM_CLIENT_SECRET`` -- Client secret for your application, generated at [instagram.com/developer](http://www.instagram.com/developer)
    * ``GEONAMES_USERNAME`` -- Username for your account on [geonames.org](http://www.geonames.org)
 
 ## Collection
 
 Collect tagged photos by running ``instagram_map_collect.py``.  This is a simple program that when executed will run forever, querying Instagram for photographs with a specific tag, and dumping the results into MongoDB.  Specifically, into the database ``instagram`` and the collection ``ig``.
 
-   * logfile
-   * tag
-   * delay
+   * *logfile*:  Filename for the logfile
+   * *tag*:  The tag to query for
+   * *delay*:  The delay, in seconds, between hits to Instagram's API (default: 30)
 
 ## Visualization
 
@@ -36,3 +42,10 @@ For example:
 Will generate a map of the entire world, one frame per hour, will add timezone information to any points that are missing it, and will normalize the map to have a more uniform brightness.  There will be a total of 24 png images written to the ``data/`` subdirectory along with ``instagram_map.log``.
 
 set -x PYTHONPATH /usr/local/lib/python2.7/site-packages/ $PYTHONPATH
+
+## Utility functions
+
+There are a couple utility functions
+
+   * Describe the wordcloud one.
+   * Describe the HTML page one.
